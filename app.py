@@ -472,7 +472,7 @@ def main():
     header_col1, header_col2 = st.columns([1, 5])
     
     with header_col1:
-        st.subheader("Configuration du logo")
+
         
         # Option 1: Saisie directe du chemin du logo
         logo_path_input = r"download.png"
