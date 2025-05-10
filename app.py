@@ -347,7 +347,9 @@ def convert_to_excel(questions_text, question_type):
         
         for line in questions_section.split('\n'):
             line = line.strip()
-            if line and line[0].isdigit() and line[1] in [".", ")"]:
+            # CORRECTION: Utiliser une expression régulière pour détecter les numéros de question
+            # Ceci fonctionnera pour n'importe quel nombre de chiffres (1, 2, 10, 100, etc.)
+            if line and re.match(r'^\d+[.)]', line):
                 if current_block:
                     question_blocks.append("\n".join(current_block))
                 current_block = [line]
@@ -375,28 +377,37 @@ def convert_to_excel(questions_text, question_type):
             })
         
         # Extraire les réponses
-        answer_lines = [line.strip() for line in answers_section.split('\n') if "Question" in line and ":" in line]
+        # CORRECTION: Utiliser une expression régulière pour extraire les réponses
+        answer_lines = [line.strip() for line in answers_section.split('\n') 
+                       if re.search(r'Question\s+\d+\s*:', line)]
+        
         for line in answer_lines:
             parts = line.split(":")
             if len(parts) >= 2:
                 answers.append(parts[1].strip())
     
     elif question_type == "vrai_faux":
-        # Extraire les affirmations
-        question_lines = [line.strip() for line in questions_section.split('\n') if line.strip() and line.strip()[0].isdigit()]
+        # Extraire les affirmations avec regex
+        question_lines = [line.strip() for line in questions_section.split('\n') 
+                         if line.strip() and re.match(r'^\d+[.)]', line.strip())]
+        
         for line in question_lines:
             questions.append({"Affirmation": line})
         
-        # Extraire les réponses
-        answer_lines = [line.strip() for line in answers_section.split('\n') if "Affirmation" in line and ":" in line]
+        # Extraire les réponses avec regex
+        answer_lines = [line.strip() for line in answers_section.split('\n') 
+                       if re.search(r'Affirmation\s+\d+\s*:', line)]
+        
         for line in answer_lines:
             parts = line.split(":")
             if len(parts) >= 2:
                 answers.append(parts[1].strip())
     
     else:  # questions ouvertes
-        # Extraire les questions
-        question_lines = [line.strip() for line in questions_section.split('\n') if line.strip() and line.strip()[0].isdigit()]
+        # Extraire les questions avec regex
+        question_lines = [line.strip() for line in questions_section.split('\n') 
+                         if line.strip() and re.match(r'^\d+[.)]', line.strip())]
+        
         for line in question_lines:
             questions.append({"Question": line})
         
@@ -405,8 +416,10 @@ def convert_to_excel(questions_text, question_type):
         current_answer = ""
         current_q_num = 0
         
+        # Améliorer la détection des numéros de question dans les réponses
         for line in answers_section_lines:
-            if line.strip() and line.strip()[0].isdigit() and ":" in line:
+            match = re.search(r'^\d+[.)]', line.strip())
+            if line.strip() and match:
                 if current_answer and current_q_num > 0:
                     answers.append(current_answer)
                 current_answer = line.split(":", 1)[1].strip() if ":" in line else ""
@@ -448,14 +461,14 @@ def convert_to_excel(questions_text, question_type):
     
     output.seek(0)
     return output.getvalue()
-
-def main():
-    # Configuration de la page avec une mise en page large
-    st.set_page_config(
+st.set_page_config(
         page_title="Générateur de Questionnaires",
         layout="wide"
     )
     
+def main():
+    # Configuration de la page avec une mise en page large
+ 
     # Initialiser les variables de session si elles n'existent pas
     if 'questions' not in st.session_state:
         st.session_state.questions = ""
@@ -472,13 +485,13 @@ def main():
     header_col1, header_col2 = st.columns([1, 5])
     
     with header_col1:
-
+    
         
         # Option 1: Saisie directe du chemin du logo
         logo_path_input = r"download.png"
         
         # Option 2: Téléchargement du logo
-       
+    
         # Traitement du logo selon l'option choisie
         if logo_path_input and os.path.exists(logo_path_input):
             # Utiliser le chemin fourni
@@ -686,10 +699,10 @@ def main():
                 os.unlink(st.session_state.logo_path)
             except:
                 pass
-    
+            
     # Enregistrer la fonction de nettoyage pour qu'elle soit exécutée à la fermeture
     import atexit
     atexit.register(cleanup)
-
+    
 if __name__ == "__main__":
     main()
