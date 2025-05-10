@@ -489,7 +489,7 @@ def main():
             except Exception as e:
                 st.error(f"Impossible de charger l'image: {str(e)}")
     with header_col2:
-        st.title("Générateur de Questionnaires PDF avec Gemini")
+        st.title("Générateur de Questionnaires")
     
     # Barre latérale pour les paramètres
     with st.sidebar:
