@@ -53,25 +53,25 @@ def extract_text_from_pdf(file_path):
         st.error(f"Erreur lors de l'extraction du texte: {str(e)}")
         return ""
 
-def generate_questions_with_gemini(model, text, num_questions=5, question_type="multiple_choice"):
-    """Générer des questions en utilisant l'API Gemini avec une distribution de difficulté aléatoire."""
+def generate_questions_with_gemini(model, text, num_questions=5, question_type="multiple_choice", difficulty_distribution=None):
+    """Générer des questions en utilisant l'API Gemini avec une distribution de difficulté personnalisée."""
     
     # Limiter la taille du texte pour éviter de dépasser les limites de l'API
     max_tokens = 30000  # Ajustez selon les limitations de Gemini
     text = text[:max_tokens] if len(text) > max_tokens else text
     
-    # Choisir aléatoirement une distribution de difficulté
-    # Soit 40% faciles, 40% moyennes, 20% difficiles OU 20% faciles, 40% moyennes, 40% difficiles
-    if random.choice([True, False]):
+    # Utiliser la distribution fournie par l'utilisateur
+    if difficulty_distribution:
+        easy_percent = difficulty_distribution['facile']
+        medium_percent = difficulty_distribution['moyen']
+        hard_percent = difficulty_distribution['difficile']
+        distribution_text = f"{easy_percent}% faciles, {medium_percent}% moyennes et {hard_percent}% difficiles"
+    else:
+        # Distribution par défaut si aucune n'est fournie
         easy_percent = 40
         medium_percent = 40
         hard_percent = 20
         distribution_text = "40% faciles, 40% moyennes et 20% difficiles"
-    else:
-        easy_percent = 20
-        medium_percent = 40
-        hard_percent = 40
-        distribution_text = "20% faciles, 40% moyennes et 40% difficiles"
     
     # Calculer le nombre de questions par niveau de difficulté
     total_q = num_questions
@@ -119,8 +119,7 @@ def generate_questions_with_gemini(model, text, num_questions=5, question_type="
         2. Dans une section "RÉPONSES SUGGÉRÉES" à la fin, propose des réponses possibles pour chaque question
         """
     
-    # Prompt modifié pour mettre les réponses à la fin et intégrer la distribution de difficulté
-    # avec une sélection aléatoire des niveaux de difficulté
+    # Prompt modifié pour utiliser la distribution de difficulté sélectionnée par l'utilisateur
     prompt = f"""
     Analyse le texte suivant et génère {num_questions} questions de type {question_type} avec une distribution de difficulté spécifique.
     
@@ -461,6 +460,7 @@ def convert_to_excel(questions_text, question_type):
     
     output.seek(0)
     return output.getvalue()
+
 st.set_page_config(
         page_title="Générateur de Questionnaires",
         layout="wide"
@@ -553,10 +553,57 @@ def main():
                     }[x]
                 )
                 
-                # Bouton pour générer les questions
-                if st.button("Générer les questions"):
+                # Nouvelle section pour la distribution de difficulté
+                st.header("Étape 3: Distribution de difficulté")
+                st.write("Choisissez le niveau de difficulté du questionnaire :")
+                
+                # Options prédéfinies de distribution de difficulté (seulement 3)
+                difficulty_options = {
+                    "Facile": {"facile": 60, "moyen": 30, "difficile": 10},
+                    "Moyen": {"facile": 40, "moyen": 40, "difficile": 20},
+                    "Difficile": {"facile": 20, "moyen": 40, "difficile": 40}
+                }
+                
+                # Sélecteur de distribution
+                selected_difficulty = st.selectbox(
+                    "Niveau de difficulté général",
+                    options=list(difficulty_options.keys()),
+                    index=1,  # Par défaut "Moyen"
+                    help="Sélectionnez le niveau de difficulté global que vous souhaitez pour votre questionnaire"
+                )
+                
+                # Afficher la distribution correspondante
+                selected_distribution = difficulty_options[selected_difficulty]
+                facile_percent = selected_distribution["facile"]
+                moyen_percent = selected_distribution["moyen"]
+                difficile_percent = selected_distribution["difficile"]
+                
+                # Affichage informatif de la distribution sélectionnée
+                st.info(f"📊 **Distribution sélectionnée** : {facile_percent}% facile, {moyen_percent}% moyen, {difficile_percent}% difficile")
+                
+                # Explication des niveaux
+                with st.expander("ℹ️ Explication des niveaux de difficulté"):
+                    st.write("""
+                    **Questions faciles** : Questions directes basées sur des informations explicites du texte
+                    
+                    **Questions moyennes** : Questions nécessitant une compréhension plus approfondie du contenu
+                    
+                    **Questions difficiles** : Questions nécessitant une analyse, synthèse ou inférence à partir du texte
+                    """)
+                
+                # Le bouton n'est plus désactivé car toutes les distributions sont valides
+                generate_button_disabled = False
+                
+                if st.button("Générer les questions", disabled=generate_button_disabled):
                     # Initialiser le modèle Gemini
                     model = setup_gemini()
+                    
+                    # Préparer la distribution de difficulté
+                    difficulty_distribution = {
+                        'facile': facile_percent,
+                        'moyen': moyen_percent,
+                        'difficile': difficile_percent
+                    }
                     
                     # Sauvegarde temporaire du fichier
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
@@ -580,7 +627,8 @@ def main():
                             model, 
                             pdf_text, 
                             num_questions, 
-                            question_type
+                            question_type,
+                            difficulty_distribution
                         )
                         
                         # Sauvegarder dans la session
@@ -592,8 +640,8 @@ def main():
     if st.session_state.questions:
         st.header("Questionnaire généré")
         
-        # Afficher la distribution de difficulté qui a été choisie aléatoirement
-        st.info(f"Distribution de difficulté aléatoirement sélectionnée: {st.session_state.distribution_text}")
+        # Afficher la distribution de difficulté sélectionnée par l'utilisateur
+        st.info(f"Distribution de difficulté sélectionnée: {st.session_state.distribution_text}")
         
         # Afficher les questions
         st.markdown(st.session_state.questions)
